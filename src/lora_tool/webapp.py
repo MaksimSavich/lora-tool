@@ -2,12 +2,18 @@
 import os
 import threading
 import time
+import logging
 from flask import Flask, request, jsonify, render_template
 from serial.tools import list_ports
 from lora_tool.serial_comm import list_serial_ports, open_serial_port
 from lora_tool.lora_device import LoRaDevice
 from lora_tool.can_decoder import CANDecoder
+from lora_tool.json_utils import CustomJSONEncoder
 import packet_pb2 as packet_pb2
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("lora_tool.webapp")
 
 # Initialize the Flask application
 app = Flask(
@@ -15,6 +21,9 @@ app = Flask(
     static_folder=os.path.join(os.path.dirname(__file__), "static"),
     template_folder=os.path.join(os.path.dirname(__file__), "templates"),
 )
+
+# Apply our custom JSON encoder
+app.json_encoder = CustomJSONEncoder
 
 # Global variables
 lora_device = None
@@ -28,7 +37,12 @@ stop_receive_event = threading.Event()
 
 # Initialize the CAN decoder
 dbc_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "telemetry.dbc")
-can_decoder = CANDecoder(dbc_path)
+try:
+    can_decoder = CANDecoder(dbc_path)
+    logger.info(f"CAN decoder initialized with DBC file: {dbc_path}")
+except Exception as e:
+    logger.error(f"Failed to initialize CAN decoder: {e}")
+    can_decoder = None
 
 
 @app.route("/")
@@ -73,6 +87,7 @@ def get_ports():
             )
     except Exception as e:
         # Handle any exceptions that might occur
+        logger.error(f"Error listing ports: {str(e)}")
         return jsonify(
             {"success": False, "ports": [], "error": f"Error listing ports: {str(e)}"}
         )
@@ -106,6 +121,7 @@ def connect():
             return jsonify({"success": False, "error": "Failed to get device status"})
 
     except Exception as e:
+        logger.error(f"Connection error: {str(e)}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -164,6 +180,7 @@ def autodetect_device():
         # Try to connect to the first matched port
         try:
             port_to_try = matched_ports[0]
+            logger.info(f"Attempting to autodetect on port: {port_to_try}")
             serial_connection = open_serial_port(port_to_try)
             lora_device = LoRaDevice(serial_connection)
             connected_port = port_to_try
@@ -187,9 +204,11 @@ def autodetect_device():
                 )
 
         except Exception as e:
+            logger.error(f"Failed to connect during autodetect: {str(e)}")
             return jsonify({"success": False, "error": f"Failed to connect: {str(e)}"})
 
     except Exception as e:
+        logger.error(f"Autodetect error: {str(e)}")
         return jsonify({"success": False, "error": f"Autodetect error: {str(e)}"})
 
 
@@ -240,6 +259,7 @@ def settings():
 
             return jsonify({"success": True, "settings": lora_device.lora_settings})
         except Exception as e:
+            logger.error(f"Error updating settings: {str(e)}")
             return jsonify({"success": False, "error": str(e)})
 
 
@@ -274,9 +294,11 @@ def receive():
         receive_thread.start()
 
         is_receiving = True
+        logger.info("Started receiving mode")
 
         return jsonify({"success": True})
     except Exception as e:
+        logger.error(f"Error starting receiver: {str(e)}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -298,9 +320,11 @@ def stop_receive():
         lora_device.change_state(packet_pb2.State.STANDBY)
 
         is_receiving = False
+        logger.info("Stopped receiving mode")
 
         return jsonify({"success": True})
     except Exception as e:
+        logger.error(f"Error stopping receiver: {str(e)}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -343,6 +367,7 @@ def debug_info():
                 }
             )
     except Exception as e:
+        logger.error(f"Error getting port info: {str(e)}")
         ports_info = [{"error": str(e)}]
 
     # Check permissions on Linux
@@ -381,7 +406,18 @@ def debug_info():
 
             permissions_info["port_permissions"] = port_perms
         except Exception as e:
+            logger.error(f"Error checking permissions: {str(e)}")
             permissions_info["error"] = str(e)
+
+    # Get CAN decoder info
+    can_decoder_info = {}
+    if can_decoder and can_decoder.db:
+        can_decoder_info["dbc_path"] = dbc_path
+        can_decoder_info["message_count"] = len(can_decoder.db.messages)
+        can_decoder_info["messages"] = [
+            {"name": msg.name, "frame_id": f"0x{msg.frame_id:X}", "length": msg.length}
+            for msg in can_decoder.db.messages[:5]  # Limit to first 5 messages
+        ]
 
     return jsonify(
         {
@@ -395,6 +431,14 @@ def debug_info():
                 "ports": ports_info,
             },
             "permissions": permissions_info,
+            "can_decoder": can_decoder_info,
+            "lora_status": {
+                "connected": lora_device is not None
+                and hasattr(lora_device, "ser")
+                and lora_device.ser is not None,
+                "port": connected_port,
+                "is_receiving": is_receiving,
+            },
         }
     )
 
@@ -410,7 +454,10 @@ def receive_data_thread(stop_event):
                 log = packet.log
 
                 # Process the CAN message from the payload
-                can_data = can_decoder.decode_payload(log.payload)
+                if can_decoder:
+                    can_data = can_decoder.decode_payload(log.payload)
+                else:
+                    can_data = {"error": "CAN decoder not initialized"}
 
                 message_info = {
                     "timestamp": time.time(),
@@ -426,6 +473,8 @@ def receive_data_thread(stop_event):
 
                 with lock:
                     message_queue.append(message_info)
+
+                logger.debug(f"Received message: {message_info['message_name']}")
             return False  # Continue processing
 
         # Process packets until stopped
@@ -436,11 +485,12 @@ def receive_data_thread(stop_event):
                 )
             time.sleep(0.1)
     except Exception as e:
-        print(f"Error in receive thread: {e}")
+        logger.error(f"Error in receive thread: {e}")
     finally:
         if lora_device and lora_device.ser:
             lora_device.change_state(packet_pb2.State.STANDBY)
         is_receiving = False
+        logger.info("Receive thread stopped")
 
 
 def create_folders():
@@ -460,11 +510,12 @@ def run_app():
     """Run the Flask application."""
     create_folders()
 
-    # Write the template file
+    # Write the template file if it doesn't exist
     template_path = os.path.join(os.path.dirname(__file__), "templates", "index.html")
     if not os.path.exists(template_path):
-        with open(template_path, "w") as f:
-            f.write("""<!DOCTYPE html>
+        try:
+            with open(template_path, "w") as f:
+                f.write("""<!DOCTYPE html>
 <html>
 <head>
     <title>LoRa Tool Web Interface</title>
@@ -532,7 +583,9 @@ def run_app():
                             <option value="">Select Port</option>
                         </select>
                         <button id="refresh-ports" class="btn btn-secondary btn-sm mb-2">Refresh Ports</button>
+                        <button id="debug-button" class="btn btn-info btn-sm mb-2">Debug</button>
                         <button id="connect-button" class="btn btn-primary mb-2">Connect</button>
+                        <button id="autodetect-button" class="btn btn-outline-primary btn-sm mb-2">Auto-Detect</button>
                         <div id="connection-info" class="small mt-2"></div>
                     </div>
                 </div>
@@ -625,7 +678,9 @@ def run_app():
         // DOM Elements
         const portSelect = document.getElementById('port-select');
         const refreshPortsButton = document.getElementById('refresh-ports');
+        const debugButton = document.getElementById('debug-button');
         const connectButton = document.getElementById('connect-button');
+        const autodetectButton = document.getElementById('autodetect-button');
         const connectionStatus = document.getElementById('connection-status');
         const connectionInfo = document.getElementById('connection-info');
         const updateSettingsButton = document.getElementById('update-settings');
@@ -644,7 +699,9 @@ def run_app():
             updateButtons();
             
             refreshPortsButton.addEventListener('click', loadPorts);
+            debugButton.addEventListener('click', showDebugInfo);
             connectButton.addEventListener('click', toggleConnection);
+            autodetectButton.addEventListener('click', autoDetectDevice);
             updateSettingsButton.addEventListener('click', updateSettings);
             startReceiveButton.addEventListener('click', startReceiving);
             stopReceiveButton.addEventListener('click', stopReceiving);
@@ -654,23 +711,150 @@ def run_app():
         // Functions
         async function loadPorts() {
             try {
+                // Update UI to show loading state
+                connectionInfo.textContent = 'Loading ports...';
+                
                 const response = await fetch('/api/ports');
                 const data = await response.json();
                 
                 portSelect.innerHTML = '<option value="">Select Port</option>';
-                data.ports.forEach(port => {
-                    const option = document.createElement('option');
-                    option.value = port;
-                    option.textContent = port;
-                    portSelect.appendChild(option);
-                });
                 
-                if (data.ports.length === 0) {
-                    connectionInfo.textContent = 'No serial ports available';
+                if (data.success && data.ports && data.ports.length > 0) {
+                    data.ports.forEach(port => {
+                        const option = document.createElement('option');
+                        option.value = port;
+                        option.textContent = port;
+                        portSelect.appendChild(option);
+                    });
+                    connectionInfo.textContent = `Found ${data.ports.length} port(s)`;
+                } else {
+                    // Handle error case with helpful message
+                    connectionInfo.innerHTML = `<span class="text-danger">No serial ports found</span><br>`;
+                    
+                    if (data.error) {
+                        connectionInfo.innerHTML += `Error: ${data.error}<br>`;
+                    }
+                    
+                    if (data.help) {
+                        connectionInfo.innerHTML += `${data.help}<br>`;
+                    }
+                    
+                    // Add troubleshooting tips
+                    connectionInfo.innerHTML += `
+                        <small class="mt-2">
+                            <strong>Troubleshooting:</strong><br>
+                            - Make sure your device is connected<br>
+                            - Try a different USB port<br>
+                            - Restart the application<br>
+                            - Check device drivers
+                        </small>`;
                 }
             } catch (error) {
                 console.error('Error loading ports:', error);
-                connectionInfo.textContent = 'Error loading ports';
+                connectionInfo.innerHTML = `<span class="text-danger">Error loading ports: ${error.message}</span>`;
+            }
+        }
+        
+        async function showDebugInfo() {
+            try {
+                connectionInfo.textContent = 'Loading debug information...';
+                
+                const response = await fetch('/api/debug');
+                const data = await response.json();
+                
+                // Create a modal dialog to show the debug info
+                const modalDiv = document.createElement('div');
+                modalDiv.className = 'modal fade';
+                modalDiv.id = 'debugModal';
+                modalDiv.setAttribute('tabindex', '-1');
+                
+                modalDiv.innerHTML = `
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Debug Information</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <pre class="border p-3 bg-light" style="max-height: 400px; overflow: auto;">${JSON.stringify(data, null, 2)}</pre>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Add the modal to the page
+                document.body.appendChild(modalDiv);
+                
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('debugModal'));
+                modal.show();
+                
+                // Add event listener to remove the modal from the DOM when hidden
+                document.getElementById('debugModal').addEventListener('hidden.bs.modal', function () {
+                    document.body.removeChild(modalDiv);
+                });
+                
+                connectionInfo.textContent = 'Debug information loaded';
+            } catch (error) {
+                console.error('Error getting debug info:', error);
+                connectionInfo.textContent = `Error loading debug info: ${error.message}`;
+            }
+        }
+        
+        async function autoDetectDevice() {
+            try {
+                connectionInfo.textContent = 'Auto-detecting device...';
+                
+                const response = await fetch('/api/autodetect', {
+                    method: 'POST',
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Mark as connected
+                    isConnected = true;
+                    connectionStatus.classList.remove('status-disconnected');
+                    connectionStatus.classList.add('status-connected');
+                    connectionInfo.innerHTML = `Auto-connected to ${data.port}<br>`;
+                    connectButton.textContent = 'Disconnect';
+                    
+                    // Update port select dropdown to show the selected port
+                    Array.from(portSelect.options).forEach(option => {
+                        if (option.value === data.port) {
+                            option.selected = true;
+                        }
+                    });
+                    
+                    // Update form with current settings
+                    if (data.settings) {
+                        document.getElementById('frequency').value = data.settings['Frequency'];
+                        document.getElementById('power').value = data.settings['Power'];
+                        document.getElementById('bandwidth').value = data.settings['Bandwidth'];
+                        document.getElementById('spreading_factor').value = data.settings['Spreading Factor'];
+                        document.getElementById('coding_rate').value = data.settings['Coding Rate'];
+                        document.getElementById('preamble').value = data.settings['Preamble'];
+                        document.getElementById('set_crc').checked = data.settings['CRC Enabled'];
+                        document.getElementById('sync_word').value = data.settings['Sync Word'];
+                    }
+                    
+                    // Show GPS info if available
+                    if (data.gps) {
+                        Object.entries(data.gps).forEach(([key, value]) => {
+                            connectionInfo.innerHTML += `${key}: ${value}<br>`;
+                        });
+                    }
+                } else {
+                    connectionInfo.textContent = `Auto-detection failed: ${data.error}`;
+                }
+                
+                updateButtons();
+            } catch (error) {
+                console.error('Error auto-detecting:', error);
+                connectionInfo.textContent = 'Auto-detection failed';
             }
         }
         
@@ -818,8 +1002,6 @@ def run_app():
                 }
                 
                 const response = await fetch('/api/stop_receive', {
-                    method:
-                     const response = await fetch('/api/stop_receive', {
                     method: 'POST',
                 });
                 
@@ -951,6 +1133,7 @@ def run_app():
             // Connection related buttons
             refreshPortsButton.disabled = isConnected;
             portSelect.disabled = isConnected;
+            autodetectButton.disabled = isConnected;
             
             // Settings buttons
             updateSettingsButton.disabled = !isConnected;
@@ -963,6 +1146,8 @@ def run_app():
     </script>
 </body>
 </html>""")
+        except Exception as e:
+            logger.error(f"Error creating template file: {e}")
 
     # Start the Flask app
     app.run(host="0.0.0.0", port=5001, debug=True, use_reloader=False)
