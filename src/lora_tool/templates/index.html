@@ -187,26 +187,50 @@
         
         // Functions
         async function loadPorts() {
-            try {
-                const response = await fetch('/api/ports');
-                const data = await response.json();
-                
-                portSelect.innerHTML = '<option value="">Select Port</option>';
-                data.ports.forEach(port => {
-                    const option = document.createElement('option');
-                    option.value = port;
-                    option.textContent = port;
-                    portSelect.appendChild(option);
-                });
-                
-                if (data.ports.length === 0) {
-                    connectionInfo.textContent = 'No serial ports available';
-                }
-            } catch (error) {
-                console.error('Error loading ports:', error);
-                connectionInfo.textContent = 'Error loading ports';
+    try {
+        // Update UI to show loading state
+        connectionInfo.textContent = 'Loading ports...';
+        
+        const response = await fetch('/api/ports');
+        const data = await response.json();
+        
+        portSelect.innerHTML = '<option value="">Select Port</option>';
+        
+        if (data.success && data.ports && data.ports.length > 0) {
+            data.ports.forEach(port => {
+                const option = document.createElement('option');
+                option.value = port;
+                option.textContent = port;
+                portSelect.appendChild(option);
+            });
+            connectionInfo.textContent = `Found ${data.ports.length} port(s)`;
+        } else {
+            // Handle error case with helpful message
+            connectionInfo.innerHTML = `<span class="text-danger">No serial ports found</span><br>`;
+            
+            if (data.error) {
+                connectionInfo.innerHTML += `Error: ${data.error}<br>`;
             }
+            
+            if (data.help) {
+                connectionInfo.innerHTML += `${data.help}<br>`;
+            }
+            
+            // Add troubleshooting tips
+            connectionInfo.innerHTML += `
+                <small class="mt-2">
+                    <strong>Troubleshooting:</strong><br>
+                    - Make sure your device is connected<br>
+                    - Try a different USB port<br>
+                    - Restart the application<br>
+                    - Check device drivers
+                </small>`;
         }
+    } catch (error) {
+        console.error('Error loading ports:', error);
+        connectionInfo.innerHTML = `<span class="text-danger">Error loading ports: ${error.message}</span>`;
+    }
+}
         
         async function toggleConnection() {
             if (isConnected) {
@@ -352,8 +376,6 @@
                 }
                 
                 const response = await fetch('/api/stop_receive', {
-                    method:
-                     const response = await fetch('/api/stop_receive', {
                     method: 'POST',
                 });
                 

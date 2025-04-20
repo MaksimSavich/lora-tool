@@ -3,6 +3,7 @@ import os
 import threading
 import time
 from flask import Flask, request, jsonify, render_template
+from serial.tools import list_ports
 from lora_tool.serial_comm import list_serial_ports, open_serial_port
 from lora_tool.lora_device import LoRaDevice
 from lora_tool.can_decoder import CANDecoder
@@ -37,8 +38,44 @@ def index():
 
 @app.route("/api/ports", methods=["GET"])
 def get_ports():
-    ports = list_serial_ports()
-    return jsonify({"ports": ports})
+    try:
+        ports = list_serial_ports()
+        if ports:
+            return jsonify({"success": True, "ports": ports})
+        else:
+            # No ports found, provide helpful message
+            import sys
+            import platform
+
+            os_type = platform.system()
+            help_message = ""
+
+            if os_type == "Windows":
+                help_message = (
+                    "Make sure your device is connected and drivers are installed."
+                )
+            elif os_type == "Linux":
+                help_message = (
+                    "Make sure your user has access to dialout group or run with sudo."
+                )
+            elif os_type == "Darwin":  # macOS
+                help_message = "Check System Information to verify devices. May need to grant permissions."
+
+            return jsonify(
+                {
+                    "success": False,
+                    "ports": [],
+                    "error": "No serial ports found",
+                    "help": help_message,
+                    "python_version": sys.version,
+                    "platform": platform.platform(),
+                }
+            )
+    except Exception as e:
+        # Handle any exceptions that might occur
+        return jsonify(
+            {"success": False, "ports": [], "error": f"Error listing ports: {str(e)}"}
+        )
 
 
 @app.route("/api/connect", methods=["POST"])
@@ -70,6 +107,90 @@ def connect():
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/api/autodetect", methods=["POST"])
+def autodetect_device():
+    """Attempt to automatically detect and connect to a LoRa device"""
+    global lora_device, serial_connection, connected_port
+
+    # Common USB-Serial devices used with LoRa
+    KNOWN_VID_PID = [
+        # FTDI
+        (0x0403, 0x6001),  # FT232
+        (0x0403, 0x6010),  # FT2232
+        (0x0403, 0x6011),  # FT4232
+        (0x0403, 0x6014),  # FT232H
+        # Silicon Labs
+        (0x10C4, 0xEA60),  # CP2102/CP2109
+        (0x10C4, 0xEA63),  # CP2103
+        (0x10C4, 0xEA70),  # CP2105
+        # WCH
+        (0x1A86, 0x7523),  # CH340
+        (0x1A86, 0x5523),  # CH341
+    ]
+
+    try:
+        # First get all ports
+        all_ports = list(list_ports.comports())
+        if not all_ports:
+            return jsonify({"success": False, "error": "No serial ports found"})
+
+        # Try to find ports that match known LoRa adapter VID/PIDs
+        matched_ports = []
+        for port in all_ports:
+            if port.vid is not None and port.pid is not None:
+                if (port.vid, port.pid) in KNOWN_VID_PID:
+                    matched_ports.append(port.device)
+
+        # If no known devices found, try ports with common keywords
+        if not matched_ports:
+            for port in all_ports:
+                if any(
+                    keyword in port.description.lower()
+                    for keyword in ["cp210", "ch340", "ft232", "usb", "uart", "lora"]
+                ):
+                    matched_ports.append(port.device)
+
+        # If still no matches, take the first available port
+        if not matched_ports and all_ports:
+            matched_ports = [all_ports[0].device]
+
+        if not matched_ports:
+            return jsonify(
+                {"success": False, "error": "Could not identify a suitable port"}
+            )
+
+        # Try to connect to the first matched port
+        try:
+            port_to_try = matched_ports[0]
+            serial_connection = open_serial_port(port_to_try)
+            lora_device = LoRaDevice(serial_connection)
+            connected_port = port_to_try
+
+            result = lora_device.update_status()
+            if result.get("success", False):
+                return jsonify(
+                    {
+                        "success": True,
+                        "port": port_to_try,
+                        "settings": result.get("settings", {}),
+                        "gps": result.get("gps", {}),
+                    }
+                )
+            else:
+                # Close connection on failure
+                if serial_connection:
+                    serial_connection.close()
+                return jsonify(
+                    {"success": False, "error": "Failed to get device status"}
+                )
+
+        except Exception as e:
+            return jsonify({"success": False, "error": f"Failed to connect: {str(e)}"})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Autodetect error: {str(e)}"})
 
 
 @app.route("/api/settings", methods=["GET", "POST"])
@@ -192,6 +313,90 @@ def get_messages():
         message_queue = []
 
     return jsonify({"messages": messages})
+
+
+@app.route("/api/debug", methods=["GET"])
+def debug_info():
+    """Endpoint to provide debugging information"""
+    import sys
+    import platform
+    import serial
+    import os
+
+    # Get all serial ports with extra information
+    try:
+        ports_info = []
+        for port in list_ports.comports():
+            ports_info.append(
+                {
+                    "device": port.device,
+                    "name": port.name,
+                    "description": port.description,
+                    "hwid": port.hwid,
+                    "vid": port.vid,
+                    "pid": port.pid,
+                    "serial_number": port.serial_number,
+                    "location": port.location,
+                    "manufacturer": port.manufacturer,
+                    "product": port.product,
+                    "interface": getattr(port, "interface", None),
+                }
+            )
+    except Exception as e:
+        ports_info = [{"error": str(e)}]
+
+    # Check permissions on Linux
+    permissions_info = {}
+    if platform.system() == "Linux":
+        try:
+            import pwd, grp
+
+            user = os.getenv("USER", "unknown")
+            permissions_info["user"] = user
+            permissions_info["groups"] = [
+                g.gr_name for g in grp.getgrall() if user in g.gr_mem
+            ]
+
+            # Check dialout group
+            in_dialout = "dialout" in permissions_info["groups"]
+            permissions_info["in_dialout"] = in_dialout
+
+            # Check port permissions
+            port_perms = {}
+            for port in list_ports.comports():
+                try:
+                    stat_info = os.stat(port.device)
+                    perms = oct(stat_info.st_mode)[-3:]
+                    owner = pwd.getpwuid(stat_info.st_uid).pw_name
+                    group = grp.getgrgid(stat_info.st_gid).gr_name
+                    port_perms[port.device] = {
+                        "permissions": perms,
+                        "owner": owner,
+                        "group": group,
+                        "can_read": os.access(port.device, os.R_OK),
+                        "can_write": os.access(port.device, os.W_OK),
+                    }
+                except Exception as e:
+                    port_perms[port.device] = {"error": str(e)}
+
+            permissions_info["port_permissions"] = port_perms
+        except Exception as e:
+            permissions_info["error"] = str(e)
+
+    return jsonify(
+        {
+            "system": {
+                "platform": platform.platform(),
+                "python_version": sys.version,
+                "cwd": os.getcwd(),
+            },
+            "serial": {
+                "pyserial_version": serial.__version__,
+                "ports": ports_info,
+            },
+            "permissions": permissions_info,
+        }
+    )
 
 
 def receive_data_thread(stop_event):
