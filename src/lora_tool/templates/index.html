@@ -66,7 +66,9 @@
                             <option value="">Select Port</option>
                         </select>
                         <button id="refresh-ports" class="btn btn-secondary btn-sm mb-2">Refresh Ports</button>
+                        <button id="debug-button" class="btn btn-info btn-sm mb-2">Debug</button>
                         <button id="connect-button" class="btn btn-primary mb-2">Connect</button>
+                        <button id="autodetect-button" class="btn btn-outline-primary btn-sm mb-2">Auto-Detect</button>
                         <div id="connection-info" class="small mt-2"></div>
                     </div>
                 </div>
@@ -159,7 +161,9 @@
         // DOM Elements
         const portSelect = document.getElementById('port-select');
         const refreshPortsButton = document.getElementById('refresh-ports');
+        const debugButton = document.getElementById('debug-button');
         const connectButton = document.getElementById('connect-button');
+        const autodetectButton = document.getElementById('autodetect-button');
         const connectionStatus = document.getElementById('connection-status');
         const connectionInfo = document.getElementById('connection-info');
         const updateSettingsButton = document.getElementById('update-settings');
@@ -178,7 +182,9 @@
             updateButtons();
             
             refreshPortsButton.addEventListener('click', loadPorts);
+            debugButton.addEventListener('click', showDebugInfo);
             connectButton.addEventListener('click', toggleConnection);
+            autodetectButton.addEventListener('click', autoDetectDevice);
             updateSettingsButton.addEventListener('click', updateSettings);
             startReceiveButton.addEventListener('click', startReceiving);
             stopReceiveButton.addEventListener('click', stopReceiving);
@@ -187,50 +193,153 @@
         
         // Functions
         async function loadPorts() {
-    try {
-        // Update UI to show loading state
-        connectionInfo.textContent = 'Loading ports...';
-        
-        const response = await fetch('/api/ports');
-        const data = await response.json();
-        
-        portSelect.innerHTML = '<option value="">Select Port</option>';
-        
-        if (data.success && data.ports && data.ports.length > 0) {
-            data.ports.forEach(port => {
-                const option = document.createElement('option');
-                option.value = port;
-                option.textContent = port;
-                portSelect.appendChild(option);
-            });
-            connectionInfo.textContent = `Found ${data.ports.length} port(s)`;
-        } else {
-            // Handle error case with helpful message
-            connectionInfo.innerHTML = `<span class="text-danger">No serial ports found</span><br>`;
-            
-            if (data.error) {
-                connectionInfo.innerHTML += `Error: ${data.error}<br>`;
+            try {
+                // Update UI to show loading state
+                connectionInfo.textContent = 'Loading ports...';
+                
+                const response = await fetch('/api/ports');
+                const data = await response.json();
+                
+                portSelect.innerHTML = '<option value="">Select Port</option>';
+                
+                if (data.success && data.ports && data.ports.length > 0) {
+                    data.ports.forEach(port => {
+                        const option = document.createElement('option');
+                        option.value = port;
+                        option.textContent = port;
+                        portSelect.appendChild(option);
+                    });
+                    connectionInfo.textContent = `Found ${data.ports.length} port(s)`;
+                } else {
+                    // Handle error case with helpful message
+                    connectionInfo.innerHTML = `<span class="text-danger">No serial ports found</span><br>`;
+                    
+                    if (data.error) {
+                        connectionInfo.innerHTML += `Error: ${data.error}<br>`;
+                    }
+                    
+                    if (data.help) {
+                        connectionInfo.innerHTML += `${data.help}<br>`;
+                    }
+                    
+                    // Add troubleshooting tips
+                    connectionInfo.innerHTML += `
+                        <small class="mt-2">
+                            <strong>Troubleshooting:</strong><br>
+                            - Make sure your device is connected<br>
+                            - Try a different USB port<br>
+                            - Restart the application<br>
+                            - Check device drivers
+                        </small>`;
+                }
+            } catch (error) {
+                console.error('Error loading ports:', error);
+                connectionInfo.innerHTML = `<span class="text-danger">Error loading ports: ${error.message}</span>`;
             }
-            
-            if (data.help) {
-                connectionInfo.innerHTML += `${data.help}<br>`;
-            }
-            
-            // Add troubleshooting tips
-            connectionInfo.innerHTML += `
-                <small class="mt-2">
-                    <strong>Troubleshooting:</strong><br>
-                    - Make sure your device is connected<br>
-                    - Try a different USB port<br>
-                    - Restart the application<br>
-                    - Check device drivers
-                </small>`;
         }
-    } catch (error) {
-        console.error('Error loading ports:', error);
-        connectionInfo.innerHTML = `<span class="text-danger">Error loading ports: ${error.message}</span>`;
-    }
-}
+        
+        async function showDebugInfo() {
+            try {
+                connectionInfo.textContent = 'Loading debug information...';
+                
+                const response = await fetch('/api/debug');
+                const data = await response.json();
+                
+                // Create a modal dialog to show the debug info
+                const modalDiv = document.createElement('div');
+                modalDiv.className = 'modal fade';
+                modalDiv.id = 'debugModal';
+                modalDiv.setAttribute('tabindex', '-1');
+                
+                modalDiv.innerHTML = `
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Debug Information</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <pre class="border p-3 bg-light" style="max-height: 400px; overflow: auto;">${JSON.stringify(data, null, 2)}</pre>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Add the modal to the page
+                document.body.appendChild(modalDiv);
+                
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('debugModal'));
+                modal.show();
+                
+                // Add event listener to remove the modal from the DOM when hidden
+                document.getElementById('debugModal').addEventListener('hidden.bs.modal', function () {
+                    document.body.removeChild(modalDiv);
+                });
+                
+                connectionInfo.textContent = 'Debug information loaded';
+            } catch (error) {
+                console.error('Error getting debug info:', error);
+                connectionInfo.textContent = `Error loading debug info: ${error.message}`;
+            }
+        }
+        
+        async function autoDetectDevice() {
+            try {
+                connectionInfo.textContent = 'Auto-detecting device...';
+                
+                const response = await fetch('/api/autodetect', {
+                    method: 'POST',
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Mark as connected
+                    isConnected = true;
+                    connectionStatus.classList.remove('status-disconnected');
+                    connectionStatus.classList.add('status-connected');
+                    connectionInfo.innerHTML = `Auto-connected to ${data.port}<br>`;
+                    connectButton.textContent = 'Disconnect';
+                    
+                    // Update port select dropdown to show the selected port
+                    Array.from(portSelect.options).forEach(option => {
+                        if (option.value === data.port) {
+                            option.selected = true;
+                        }
+                    });
+                    
+                    // Update form with current settings
+                    if (data.settings) {
+                        document.getElementById('frequency').value = data.settings['Frequency'];
+                        document.getElementById('power').value = data.settings['Power'];
+                        document.getElementById('bandwidth').value = data.settings['Bandwidth'];
+                        document.getElementById('spreading_factor').value = data.settings['Spreading Factor'];
+                        document.getElementById('coding_rate').value = data.settings['Coding Rate'];
+                        document.getElementById('preamble').value = data.settings['Preamble'];
+                        document.getElementById('set_crc').checked = data.settings['CRC Enabled'];
+                        document.getElementById('sync_word').value = data.settings['Sync Word'];
+                    }
+                    
+                    // Show GPS info if available
+                    if (data.gps) {
+                        Object.entries(data.gps).forEach(([key, value]) => {
+                            connectionInfo.innerHTML += `${key}: ${value}<br>`;
+                        });
+                    }
+                } else {
+                    connectionInfo.textContent = `Auto-detection failed: ${data.error}`;
+                }
+                
+                updateButtons();
+            } catch (error) {
+                console.error('Error auto-detecting:', error);
+                connectionInfo.textContent = 'Auto-detection failed';
+            }
+        }
         
         async function toggleConnection() {
             if (isConnected) {
@@ -507,6 +616,7 @@
             // Connection related buttons
             refreshPortsButton.disabled = isConnected;
             portSelect.disabled = isConnected;
+            autodetectButton.disabled = isConnected;
             
             // Settings buttons
             updateSettingsButton.disabled = !isConnected;
