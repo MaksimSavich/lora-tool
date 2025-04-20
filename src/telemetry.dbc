@@ -36,7 +36,7 @@ BS_:
 BU_: 
 
 
-BO_ 2364612101 MotorController_Status1: 8 Vector__XXX
+BO_ 2364612101 MotorController_1_Status1: 8 Vector__XXX
  SG_ Fault_MC_ERR15 : 63|1@1+ (1,0) [0|0] "" Vector__XXX
  SG_ Fault_MC_ERR14 : 62|1@1+ (1,0) [0|0] "" Vector__XXX
  SG_ Fault_MC_ERR13 : 61|1@1+ (1,0) [0|0] "" Vector__XXX
@@ -57,7 +57,35 @@ BO_ 2364612101 MotorController_Status1: 8 Vector__XXX
  SG_ Actual_Current_A : 16|16@1+ (0.1,0) [0|400] "A" Vector__XXX
  SG_ Actual_Speed_RPM : 0|16@1+ (1.0,0) [0|6000] "rpm" Vector__XXX
 
-BO_ 2364612357 MotorController_Status2: 8 Vector__XXX
+BO_ 2364612357 MotorController_1_Status2: 8 Vector__XXX
+ SG_ Status_Switch_Signals : 40|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Status_Controller : 32|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Motor_Temperature_C : 16|8@1- (1.0,-30) [-30|225] "�C" Vector__XXX
+ SG_ Controller_Temperature_C : 8|8@1- (1.0,-40) [-40|215] "�C" Vector__XXX
+ SG_ Throttle_Signal : 0|8@1+ (0.0196,0) [0|5] "V" Vector__XXX
+
+BO_ 2364612102 MotorController_2_Status1: 8 Vector__XXX
+ SG_ Fault_MC_ERR15 : 63|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR14 : 62|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR13 : 61|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR12 : 60|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR11 : 59|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR10 : 58|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR9 : 57|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR8 : 56|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR7 : 55|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR6 : 54|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR5 : 53|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR4 : 52|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR3 : 51|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR2 : 50|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR1 : 49|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Fault_MC_ERR0 : 48|1@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Battery_Voltage_V : 32|16@1+ (0.1,0) [0|180] "V" Vector__XXX
+ SG_ Actual_Current_A : 16|16@1+ (0.1,0) [0|400] "A" Vector__XXX
+ SG_ Actual_Speed_RPM : 0|16@1+ (1.0,0) [0|6000] "rpm" Vector__XXX
+
+BO_ 2364612358 MotorController_2_Status2: 8 Vector__XXX
  SG_ Status_Switch_Signals : 40|8@1+ (1,0) [0|0] "" Vector__XXX
  SG_ Status_Controller : 32|8@1+ (1,0) [0|0] "" Vector__XXX
  SG_ Motor_Temperature_C : 16|8@1- (1.0,-30) [-30|225] "�C" Vector__XXX
@@ -116,6 +144,42 @@ BO_ 768 BMS_Faults: 4 Vector__XXX
  SG_ Fault_BMS_Internal_Conversion : 1|1@1+ (1,0) [0|0] "" Vector__XXX
  SG_ Fault_BMS_Internal_Comms : 0|1@1+ (1,0) [0|0] "" Vector__XXX
 
+BO_ 1744 BMS_Status1: 8 Vector__XXX
+ SG_ BMS_Checksum1 : 56|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Relay_State : 40|16@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Pack_SOC : 32|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Pack_Instantaneous_Voltage_V : 16|16@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Pack_Current_A : 0|16@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 1713 BMS_Status2: 8 Vector__XXX
+ SG_ BMS_Checksum2 : 56|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Pack_Low_Temperature_C : 40|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Pack_High_Temperature_C : 32|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Pack_DCL : 0|32@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 2550589428 BMS_Status3: 8 Vector__XXX
+ SG_ BMS_Custom_Flag1 : 32|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Pack_CCL : 16|16@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Max_Pack_Voltage_V : 0|16@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 2550588916 BMS_Status4: 8 Vector__XXX
+ SG_ BMS_Custom_Flag2 : 32|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Pack_CCL : 16|16@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Max_Cell_Voltage_V : 0|16@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 2550589940 BMS_Status5: 8 Vector__XXX
+ SG_ BMS_Custom_Flag2 : 32|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Pack_CCL : 16|16@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Max_Cell_Voltage_V : 0|16@1+ (1,0) [0|0] "" Vector__XXX
+
+BO_ 2565160996 BMS_Thunderstruck: 8 Vector__XXX
+ SG_ BMS_Const_Val2 : 56|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Const_Val1 : 48|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Pack_SOC : 40|8@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Pack_CCL : 24|16@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ BMS_Max_Pack_Voltage_V : 8|16@1+ (1,0) [0|0] "" Vector__XXX
+ SG_ Custom_Flag1 : 0|8@1+ (1,0) [0|0] "" Vector__XXX
+
 
 
 
@@ -126,6 +190,8 @@ BA_DEF_DEF_  "SystemSignalLongSymbol" "";
 BA_DEF_DEF_  "GenMsgCycleTime" 0;
 BA_ "GenMsgCycleTime" BO_ 2364612101 50;
 BA_ "GenMsgCycleTime" BO_ 2364612357 50;
+BA_ "GenMsgCycleTime" BO_ 2364612102 50;
+BA_ "GenMsgCycleTime" BO_ 2364612358 50;
 BA_ "GenMsgCycleTime" BO_ 0 500;
 BA_ "GenMsgCycleTime" BO_ 1 1000;
 BA_ "GenMsgCycleTime" BO_ 1910 100;
@@ -133,6 +199,12 @@ BA_ "GenMsgCycleTime" BO_ 1911 100;
 BA_ "GenMsgCycleTime" BO_ 768 100;
 BA_ "SystemSignalLongSymbol" SG_ 768 Fault_BMS_Discharge_Limit_Reinfo "Fault_BMS_Discharge_Limit_Reinforcement";
 BA_ "SystemSignalLongSymbol" SG_ 768 Fault_BMS_Charge_Limit_Reinforce "Fault_BMS_Charge_Limit_Reinforcement";
+BA_ "GenMsgCycleTime" BO_ 1744 100;
+BA_ "GenMsgCycleTime" BO_ 1713 100;
+BA_ "GenMsgCycleTime" BO_ 2550589428 50;
+BA_ "GenMsgCycleTime" BO_ 2550588916 50;
+BA_ "GenMsgCycleTime" BO_ 2550589940 50;
+BA_ "GenMsgCycleTime" BO_ 2565160996 50;
 VAL_ 2364612101 Fault_MC_ERR15 0 "OK" 1 "Hall Galvanometer sensor" ;
 VAL_ 2364612101 Fault_MC_ERR14 0 "OK" 1 "Motor over-temperature" ;
 VAL_ 2364612101 Fault_MC_ERR13 0 "OK" 1 "Reserved" ;
@@ -149,6 +221,22 @@ VAL_ 2364612101 Fault_MC_ERR3 0 "OK" 1 "Reserved" ;
 VAL_ 2364612101 Fault_MC_ERR2 0 "OK" 1 "Low voltage" ;
 VAL_ 2364612101 Fault_MC_ERR1 0 "OK" 1 "Over voltage" ;
 VAL_ 2364612101 Fault_MC_ERR0 0 "OK" 1 "Identification error" ;
+VAL_ 2364612102 Fault_MC_ERR15 0 "OK" 1 "Hall Galvanometer sensor" ;
+VAL_ 2364612102 Fault_MC_ERR14 0 "OK" 1 "Motor over-temperature" ;
+VAL_ 2364612102 Fault_MC_ERR13 0 "OK" 1 "Reserved" ;
+VAL_ 2364612102 Fault_MC_ERR12 0 "OK" 1 "Reserved" ;
+VAL_ 2364612102 Fault_MC_ERR11 0 "OK" 1 "Angle sensor error" ;
+VAL_ 2364612102 Fault_MC_ERR10 0 "OK" 1 "Hall throttle is open or short-circuit" ;
+VAL_ 2364612102 Fault_MC_ERR9 0 "OK" 1 "Internal reset" ;
+VAL_ 2364612102 Fault_MC_ERR8 0 "OK" 1 "Reserved" ;
+VAL_ 2364612102 Fault_MC_ERR7 0 "OK" 1 "Throttle error at power-up" ;
+VAL_ 2364612102 Fault_MC_ERR6 0 "OK" 1 "Over temperature" ;
+VAL_ 2364612102 Fault_MC_ERR5 0 "OK" 1 "Internal volts fault " ;
+VAL_ 2364612102 Fault_MC_ERR4 0 "OK" 1 "Stall" ;
+VAL_ 2364612102 Fault_MC_ERR3 0 "OK" 1 "Reserved" ;
+VAL_ 2364612102 Fault_MC_ERR2 0 "OK" 1 "Low voltage" ;
+VAL_ 2364612102 Fault_MC_ERR1 0 "OK" 1 "Over voltage" ;
+VAL_ 2364612102 Fault_MC_ERR0 0 "OK" 1 "Identification error" ;
 VAL_ 1 Fault_MPPT 0 "OK" 1 "Configuration Error" 2 "Input Over Voltage" 3 "Output Over Voltage" 4 "Output Over Current" 5 "Input Over Current" 6 "Input Under Current" 7 "Phase Over Current" 8 "General Fault" ;
 VAL_ 1911 BPS_State 0 "STANDBY" 1 "ACCESSORY" 2 "CHARGING" 3 "PRIMARY" ;
 VAL_ 1911 Fault_BPS_CAN 0 "OK" 1 "BMS Fault" 2 "Timeout" 3 "Reserved" ;

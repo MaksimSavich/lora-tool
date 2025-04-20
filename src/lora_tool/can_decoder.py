@@ -19,7 +19,7 @@ class CANDecoder:
         Decode a CAN message from a payload.
 
         The payload format is:
-        - First 4 bytes: CAN ID (little endian)
+        - First 4 bytes: CAN ID
         - Remaining bytes: CAN data (up to 8 bytes)
 
         Returns a dictionary with the decoded information.
@@ -28,7 +28,9 @@ class CANDecoder:
             return {"error": "Payload too short"}
 
         # Extract CAN ID (first 4 bytes)
-        can_id = int.from_bytes(payload[:4], byteorder="little")
+        # Based on the format described where bytes 0-3 represent the CAN ID
+        # with byte 0 being the most significant byte
+        can_id = int.from_bytes(payload[:4], byteorder="big")
 
         # Extract data (remaining bytes)
         data = payload[4:]
