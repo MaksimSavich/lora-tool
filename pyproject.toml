@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lora-tool"
+version = "0.1.0"
+description = "LoRa tool for testing with web interface"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "cramjam==2.9.1",
+    "fastparquet==2024.11.0",
+    "fsspec==2024.12.0",
+    "markdown-it-py==3.0.0",
+    "mdurl==0.1.2",
+    "numpy==2.2.2",
+    "packaging==24.2",
+    "pandas==2.2.3",
+    "pillow==11.1.0",
+    "protobuf==5.29.3",
+    "pyarrow==19.0.0",
+    "pygments==2.19.1",
+    "pyserial==3.5",
+    "python-dateutil==2.9.0.post0",
+    "pytz==2024.2",
+    "rich==13.9.4",
+    "six==1.17.0",
+    "tzdata==2025.1",
+    "flask==3.0.2",
+    "python-can==4.3.1",
+]
+
+[project.scripts]
+lora-tool-cli = "lora_tool.cli:main_menu"
+lora-tool-web = "lora_tool.web_app:run_app"
+
+[tool.setuptools]
+package-dir = {"" = "src"}

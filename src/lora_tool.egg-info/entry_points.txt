@@ -1,0 +1,3 @@
+[console_scripts]
+lora-tool-cli = lora_tool.cli:main_menu
+lora-tool-web = lora_tool.web_app:run_app
